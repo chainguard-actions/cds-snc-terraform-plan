@@ -1,0 +1,104 @@
+name: Drift detection
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Adjust as needed (this runs daily at 03:15 UTC)
+    - cron: "15 3 * * *"
+
+permissions:
+  contents: read
+
+jobs:
+  drift:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      # Install Terraform/OpenTofu and other tooling required by the action.
+      - name: Setup terraform tools
+        uses: cds-snc/terraform-tools-setup@cc15ce9039f6c37c592fb9930b70466b229d2e9b # v1
+
+      - name: Terraform plan (drift check)
+        id: plan
+        uses: cds-snc/terraform-plan@1519c0074bc5bee9e949c7d1d4d7636a75c2479e # v1
+        with:
+          # Avoid PR comments in scheduled runs.
+          comment: false
+          comment-delete: false
+
+          # Optionally set this if your Terraform lives in a subfolder.
+          # directory: ./infra
+
+      - name: Post drift data to Slack
+        if: >-
+          ${{
+            always() &&
+            (
+              fromJson(steps.plan.outputs.drift-output || '{"status":"failed","hasChanges":false,"resources":{"created":[],"updated":[],"deleted":[]}}').hasChanges ||
+              fromJson(steps.plan.outputs.drift-output || '{"status":"failed","hasChanges":false,"resources":{"created":[],"updated":[],"deleted":[]}}').status == 'failed'
+            )
+          }}
+        uses: slackapi/slack-github-action@91efab103c0de0a537f72a35f6b8cda0ee76bf0a2 # v2.1.1
+        with:
+          webhook: ${{ secrets.slack_webhook_url }}
+          webhook-type: incoming-webhook
+          payload: |
+            {
+              "text": "Terraform drift for ${{ github.event.repository.name }}",
+              "blocks": [
+                {
+                  "type": "header",
+                  "text": {
+                    "type": "plain_text",
+                    "text": "Terraform drift detected",
+                    "emoji": true
+                  }
+                },
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*Repository:* ${{ github.event.repository.name }}\n*Status:* ${{ fromJson(steps.plan.outputs.drift-output || '{\"status\":\"failed\",\"hasChanges\":false,\"resources\":{\"created\":[],\"updated\":[],\"deleted\":[]}}').status }}\n*Run:* <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|View workflow run>"
+                  }
+                },
+                {
+                  "type": "divider"
+                },
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*:large_blue_circle: Resources that will be created*\n_These are in your Terraform code but not in the state (potentially deleted out-of-band)_\n    • ${{ join(fromJson(steps.plan.outputs.drift-output || '{\"status\":\"failed\",\"hasChanges\":false,\"resources\":{\"created\":[],\"updated\":[],\"deleted\":[]}}').resources.created, '\\n    • ') || 'None' }}"
+                  }
+                },
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*:large_orange_circle: Resources that will be updated*\n_These exist but have configuration drift between Terraform and state_\n    • ${{ join(fromJson(steps.plan.outputs.drift-output || '{\"status\":\"failed\",\"hasChanges\":false,\"resources\":{\"created\":[],\"updated\":[],\"deleted\":[]}}').resources.updated, '\\n    • ') || 'None' }}"
+                  }
+                },
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*:red_circle: Resources that will be deleted*\n_These are in the state but removed from your Terraform code_\n    • ${{ join(fromJson(steps.plan.outputs.drift-output || '{\"status\":\"failed\",\"hasChanges\":false,\"resources\":{\"created\":[],\"updated\":[],\"deleted\":[]}}').resources.deleted, '\\n    • ') || 'None' }}"
+                  }
+                }
+              ]
+            }
+
+      - name: Fail if drift detected
+        if: ${{ fromJson(steps.plan.outputs.drift-output).hasChanges }}
+        run: |
+          echo "Drift detected (Terraform/OpenTofu plan contains changes)."
+          exit 1
+
+      - name: Fail if plan failed
+        if: ${{ fromJson(steps.plan.outputs.drift-output).status == 'failed' }}
+        run: |
+          echo "Drift check failed (action status=failed)."
+          exit 1

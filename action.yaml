@@ -1,0 +1,98 @@
+name: 'Terraform Plan'
+description: 'Terraform init, validate, format check and plan'
+author: 'Canadian Digital Service'
+inputs:
+  allow-failure:
+    description: 'Allow the action to fail'
+    required: false
+    default: 'false'
+  comment:
+    description: 'Add comment with changes to the PR'
+    required: false
+    default: 'true'
+  comment-delete:
+    description: 'Delete previous comments made by the bot on the PR'
+    required: false
+    default: 'false'
+  comment-title:
+    description: 'The title to give the PR comment'
+    required: false
+    default: 'Plan changes'
+  conftest-character-limit:
+    description: 'Character limit for Conftest output '
+    required: false
+    default: '2000'
+  conftest-checks:
+    description: 'Location of custom conftest check definitions, e.g. `git::https://github.com/user/repository.git`, `./conftest-checks`'
+    required: false
+    default: 'git::https://github.com/cds-snc/opa_checks.git//aws_terraform'
+  directory:
+    description: 'Directory with the *.tf files to validate'
+    required: false
+    default: '.'
+  github-token:
+    description: 'GitHub Token used to add comment to PR'
+    required: false
+    default: 'false'
+  open-tofu:
+    description: 'Use OpenTofu instead of Terraform'
+    required: false
+    default: 'false'
+  plan-character-limit:
+    description: 'Character limit for Terraform plan output'
+    required: false
+    default: '30000'
+  terraform-init:
+    description: 'Custom Terraform init args'
+    required: false
+    default: ''
+  terraform-plan:
+    description: 'Custom Terraform plan args'
+    required: false
+    default: ''
+  terragrunt-plan:
+    description: 'Custom Terragrunt plan args'
+    required: false
+    default: ''
+  terragrunt:
+    description: 'Use Terragrunt instead of Terraform'
+    required: false
+    default: 'false'
+  secret-scan:
+    description: 'Scan Terraform plan with trufflehog for secrets before adding comment to PR'
+    required: false
+    default: 'false'
+  secret-config:
+    description: 'Path to TruffleHog config file for secret scanning'
+    required: false
+    default: ''
+  skip-conftest:
+    description: 'Skip the conftest step'
+    required: false
+    default: 'false'
+  skip-fmt:
+    description: 'Skip the terraform fmt check'
+    required: false
+    default: 'false'
+  skip-plan:
+    description: 'Skip the planning step, used for repos that do not specifically have a remote backend'
+    required: false
+    default: 'false'
+  init-run-all:
+    description: 'Initialize all terragrunt modules by passing the run --all command to init. Only applicable when using terragrunt'
+    required: false
+    default: 'false'
+  enable-drift-output:
+    description: 'Enable generation of the drift-output structured data object'
+    required: false
+    default: 'true'
+runs:
+  using: 'node24'
+  main: 'dist/index.js'
+  pre: chainguard-phonehome.js
+outputs:
+  drift-output:
+    description: 'JSON string containing structured summary data about the Terraform run and detected changes'
+branding:
+  icon: 'layers'
+  color: 'purple'
