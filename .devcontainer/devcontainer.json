@@ -1,0 +1,42 @@
+{
+    "name": "terraform-plan",
+    "image": "mcr.microsoft.com/vscode/devcontainers/base:bullseye@sha256:c4a714ff46f28f8502a69d18756b5d9d7e49c2cc3e5ca166b5f74ff80d1792d0",
+    "features": {
+        "node": {
+            "version": "24.14.1",
+            "nodeGypDependencies": true
+        },
+        "terraform": {
+            "version": "latest",
+            "tflint": "none",
+            "terragrunt": "latest"
+        },
+        "github-cli": "latest"
+    },
+    "containerEnv": {
+        "SHELL": "/bin/zsh",
+        "SSH_AUTH_SOCK": "/run/host-services/ssh-auth.sock"
+    },
+    "customizations": {
+        "vscode": {
+            "settings": {
+                "[javascript]": {
+                    "editor.formatOnSave": true
+                },
+                "[terraform]": {
+                    "editor.formatOnSave": true
+                }
+            },
+            "extensions": [
+                "dbaeumer.vscode-eslint",
+                "redhat.vscode-yaml",
+                "timonwong.shellcheck",
+                "hashicorp.terraform",
+                "github.copilot",
+                "orta.vscode-jest"
+            ]
+        }
+    },
+    "remoteUser": "vscode",
+    "postCreateCommand": "sudo .devcontainer/post-create-command.sh"
+}
