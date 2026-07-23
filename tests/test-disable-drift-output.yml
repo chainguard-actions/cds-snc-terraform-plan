@@ -1,0 +1,48 @@
+name: Test disable drift-output
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      GITHUB_EVENT_NAME: push
+      GITHUB_REF: refs/heads/main
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Install mock terraform and tf-summarize
+        run: |
+          cat > /usr/local/bin/terraform << 'SCRIPT'
+          #!/bin/sh
+          echo "mock terraform $@"
+          exit 0
+          SCRIPT
+          chmod +x /usr/local/bin/terraform
+          cat > /usr/local/bin/tf-summarize << 'SCRIPT'
+          #!/bin/sh
+          echo "mock tf-summarize $@"
+          exit 0
+          SCRIPT
+          chmod +x /usr/local/bin/tf-summarize
+
+      - id: action
+        uses: .
+        with:
+          directory: ${{ github.workspace }}/test/no-changes
+          comment: 'false'
+          skip-plan: 'true'
+          skip-fmt: 'true'
+          skip-conftest: 'true'
+          enable-drift-output: 'false'
+          github-token: 'false'
+
+      - name: Assert drift-output is empty when disabled
+        env:
+          DRIFT_OUTPUT: ${{ steps.action.outputs.drift-output }}
+        run: |
+          echo "drift-output: '$DRIFT_OUTPUT'"
+          if [ -n "$DRIFT_OUTPUT" ]; then
+            echo "FAIL: drift-output should be empty when enable-drift-output=false, got '$DRIFT_OUTPUT'"
+            exit 1
+          fi
+          echo "PASS: drift-output is empty as expected"

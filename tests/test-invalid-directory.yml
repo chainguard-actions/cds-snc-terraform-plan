@@ -1,0 +1,32 @@
+name: Test invalid directory fails gracefully
+on:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - id: action
+        uses: .
+        with:
+          directory: /nonexistent/path/that/does/not/exist
+          comment: 'false'
+          skip-plan: 'true'
+          skip-conftest: 'true'
+          skip-fmt: 'true'
+          allow-failure: 'false'
+          enable-drift-output: 'false'
+        continue-on-error: true
+
+      - name: Fail if action unexpectedly succeeded
+        if: steps.action.outcome == 'success'
+        run: |
+          echo "FAIL: expected action to fail with invalid directory but it succeeded"
+          exit 1
+
+      - name: Pass if action failed as expected
+        if: steps.action.outcome == 'failure'
+        run: |
+          echo "PASS: action correctly failed for non-existent directory"

@@ -1,0 +1,38 @@
+name: Test drift-output disabled
+on:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Install Terraform
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq unzip curl
+          curl -fsSL https://releases.hashicorp.com/terraform/1.5.7/terraform_1.5.7_linux_amd64.zip -o /tmp/terraform.zip
+          sudo unzip -o /tmp/terraform.zip -d /usr/local/bin/
+          terraform version
+
+      - id: action
+        uses: .
+        with:
+          directory: tests/fixtures/drift-disabled-tf
+          comment: 'false'
+          skip-plan: 'true'
+          skip-conftest: 'true'
+          skip-fmt: 'true'
+          enable-drift-output: 'false'
+
+      - name: Assert drift-output is empty when disabled
+        env:
+          DRIFT_OUTPUT: ${{ steps.action.outputs.drift-output }}
+        run: |
+          echo "drift-output: '$DRIFT_OUTPUT'"
+          if [ -n "$DRIFT_OUTPUT" ]; then
+            echo "FAIL: expected drift-output to be empty when enable-drift-output=false, got: $DRIFT_OUTPUT"
+            exit 1
+          fi
+          echo "PASS: drift-output is empty as expected when disabled"

@@ -1,0 +1,91 @@
+name: Test drift-output structure
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      GITHUB_EVENT_NAME: push
+      GITHUB_REF: refs/heads/main
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Install mock terraform and tf-summarize
+        run: |
+          cat > /usr/local/bin/terraform << 'SCRIPT'
+          #!/bin/sh
+          echo "mock terraform $@"
+          exit 0
+          SCRIPT
+          chmod +x /usr/local/bin/terraform
+          cat > /usr/local/bin/tf-summarize << 'SCRIPT'
+          #!/bin/sh
+          echo "mock tf-summarize $@"
+          exit 0
+          SCRIPT
+          chmod +x /usr/local/bin/tf-summarize
+
+      - id: action
+        uses: .
+        with:
+          directory: ${{ github.workspace }}/test/no-changes
+          comment: 'false'
+          skip-plan: 'true'
+          skip-fmt: 'true'
+          skip-conftest: 'true'
+          enable-drift-output: 'true'
+          github-token: 'false'
+
+      - name: Assert drift-output JSON structure
+        env:
+          DRIFT_OUTPUT: ${{ steps.action.outputs.drift-output }}
+        run: |
+          echo "drift-output: $DRIFT_OUTPUT"
+          python3 - <<'EOF'
+          import sys, json, os
+
+          raw = os.environ.get("DRIFT_OUTPUT", "")
+          if not raw:
+              print("FAIL: drift-output is empty")
+              sys.exit(1)
+
+          try:
+              d = json.loads(raw)
+          except json.JSONDecodeError as e:
+              print(f"FAIL: drift-output is not valid JSON: {e}")
+              sys.exit(1)
+
+          required_keys = ["directory", "status", "hasChanges", "resources"]
+          for key in required_keys:
+              if key not in d:
+                  print(f"FAIL: missing key '{key}' in drift-output")
+                  sys.exit(1)
+
+          resource_keys = ["created", "updated", "deleted"]
+          for key in resource_keys:
+              if key not in d["resources"]:
+                  print(f"FAIL: missing key 'resources.{key}' in drift-output")
+                  sys.exit(1)
+
+          valid_statuses = ["no_changes", "has_changes", "failed"]
+          if d["status"] not in valid_statuses:
+              print(f"FAIL: status '{d['status']}' not in {valid_statuses}")
+              sys.exit(1)
+
+          print(f"PASS: drift-output structure is valid: {d}")
+          EOF
+
+      - name: Assert drift-output directory field
+        env:
+          DRIFT_OUTPUT: ${{ steps.action.outputs.drift-output }}
+        run: |
+          echo "drift-output: $DRIFT_OUTPUT"
+          DIRECTORY=$(echo "$DRIFT_OUTPUT" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d['directory'])")
+          echo "directory: $DIRECTORY"
+          EXPECTED_DIR="${GITHUB_WORKSPACE}/test/no-changes"
+          echo "expected: $EXPECTED_DIR"
+          if [ "$DIRECTORY" != "$EXPECTED_DIR" ]; then
+            echo "FAIL: expected directory '$EXPECTED_DIR', got '$DIRECTORY'"
+            exit 1
+          fi
+          echo "PASS"
