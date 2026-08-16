@@ -1,0 +1,79 @@
+name: Test drift-output JSON structure
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Install Terraform
+        run: |
+          TERRAFORM_VERSION="1.9.8"
+          curl -fsSL "https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/terraform_${TERRAFORM_VERSION}_linux_amd64.zip" -o /tmp/terraform.zip
+          unzip -q /tmp/terraform.zip -d /tmp/terraform-bin
+          sudo mv /tmp/terraform-bin/terraform /usr/local/bin/terraform
+          terraform version
+
+      - id: action
+        uses: .
+        with:
+          directory: '${{ github.workspace }}/tests/fixtures/terraform'
+          comment: 'false'
+          skip-plan: 'true'
+          skip-fmt: 'true'
+          skip-conftest: 'true'
+          enable-drift-output: 'true'
+
+      - name: Assert drift-output has all required fields
+        env:
+          DRIFT: ${{ steps.action.outputs.drift-output }}
+        run: |
+          echo "drift-output: $DRIFT"
+          if [ -z "$DRIFT" ]; then
+            echo "FAIL: drift-output is empty"
+            exit 1
+          fi
+
+          # Validate all required fields exist
+          python3 - <<'EOF'
+          import sys, json, os
+
+          drift = os.environ.get("DRIFT", "")
+          try:
+              data = json.loads(drift)
+          except Exception as e:
+              print(f"FAIL: drift-output is not valid JSON: {e}")
+              sys.exit(1)
+
+          required_fields = ["directory", "status", "hasChanges", "resources"]
+          for field in required_fields:
+              if field not in data:
+                  print(f"FAIL: missing required field '{field}' in drift-output")
+                  sys.exit(1)
+
+          resources = data["resources"]
+          resource_fields = ["created", "updated", "deleted"]
+          for field in resource_fields:
+              if field not in resources:
+                  print(f"FAIL: missing required field 'resources.{field}' in drift-output")
+                  sys.exit(1)
+              if not isinstance(resources[field], list):
+                  print(f"FAIL: 'resources.{field}' should be a list")
+                  sys.exit(1)
+
+          valid_statuses = ["no_changes", "has_changes", "failed"]
+          if data["status"] not in valid_statuses:
+              print(f"FAIL: status '{data['status']}' is not one of {valid_statuses}")
+              sys.exit(1)
+
+          if not isinstance(data["hasChanges"], bool):
+              print(f"FAIL: hasChanges should be a boolean, got {type(data['hasChanges'])}")
+              sys.exit(1)
+
+          print(f"PASS: drift-output has all required fields")
+          print(f"  directory: {data['directory']}")
+          print(f"  status: {data['status']}")
+          print(f"  hasChanges: {data['hasChanges']}")
+          print(f"  resources: {data['resources']}")
+          EOF

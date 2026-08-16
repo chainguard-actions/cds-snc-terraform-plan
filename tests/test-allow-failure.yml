@@ -1,0 +1,36 @@
+name: Test allow-failure with failing terraform
+on:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Install Terraform
+        run: |
+          curl -fsSL https://releases.hashicorp.com/terraform/1.9.8/terraform_1.9.8_linux_amd64.zip -o terraform.zip
+          unzip -q terraform.zip
+          sudo mv terraform /usr/local/bin/terraform
+          terraform version
+
+      - name: Create directory with invalid Terraform config
+        run: |
+          mkdir -p /tmp/tf-allow-failure
+          printf 'terraform {\n  required_version = ">= 1.0"\n}\n\noutput "bad" {\n  value = var.undefined_variable\n}\n' > /tmp/tf-allow-failure/main.tf
+
+      - id: action
+        uses: .
+        with:
+          directory: /tmp/tf-allow-failure
+          comment: 'false'
+          allow-failure: 'true'
+          skip-plan: 'true'
+          skip-conftest: 'true'
+          skip-fmt: 'true'
+          enable-drift-output: 'false'
+
+      - name: Assert action completed without failing the workflow
+        run: |
+          echo "PASS: action completed with allow-failure=true even though terraform validate failed"

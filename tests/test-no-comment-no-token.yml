@@ -1,0 +1,52 @@
+name: Test no comment no token
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Install Terraform
+        run: |
+          TERRAFORM_VERSION="1.9.8"
+          curl -fsSL "https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/terraform_${TERRAFORM_VERSION}_linux_amd64.zip" -o /tmp/terraform.zip
+          unzip -q /tmp/terraform.zip -d /tmp/terraform-bin
+          sudo mv /tmp/terraform-bin/terraform /usr/local/bin/terraform
+          terraform version
+
+      # When comment is false and no token is provided, the action should succeed
+      # (the token validation only triggers when comment or comment-delete is true)
+      - id: action
+        uses: .
+        with:
+          directory: '${{ github.workspace }}/tests/fixtures/terraform'
+          comment: 'false'
+          comment-delete: 'false'
+          skip-plan: 'true'
+          skip-fmt: 'true'
+          skip-conftest: 'true'
+          enable-drift-output: 'true'
+          # github-token defaults to 'false' (no token)
+
+      - name: Assert action succeeded without token when comment is false
+        env:
+          OUTCOME: ${{ steps.action.outcome }}
+        run: |
+          echo "outcome: $OUTCOME"
+          if [ "$OUTCOME" != "success" ]; then
+            echo "FAIL: expected action to succeed when comment is false and no token provided, got '$OUTCOME'"
+            exit 1
+          fi
+          echo "PASS: action succeeded without token"
+
+      - name: Assert drift-output is valid JSON
+        env:
+          DRIFT: ${{ steps.action.outputs.drift-output }}
+        run: |
+          echo "drift-output: $DRIFT"
+          if [ -z "$DRIFT" ]; then
+            echo "FAIL: drift-output is empty"
+            exit 1
+          fi
+          echo "$DRIFT" | python3 -c "import sys,json; json.load(sys.stdin); print('PASS: valid JSON')"

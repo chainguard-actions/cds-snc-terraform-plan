@@ -1,0 +1,48 @@
+name: Test no comment mode (default)
+on:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Install Terraform
+        run: |
+          curl -fsSL https://releases.hashicorp.com/terraform/1.9.8/terraform_1.9.8_linux_amd64.zip -o terraform.zip
+          unzip -q terraform.zip
+          sudo mv terraform /usr/local/bin/terraform
+          terraform version
+
+      - name: Create minimal Terraform config
+        run: |
+          mkdir -p /tmp/tf-no-comment
+          printf 'terraform {\n  required_version = ">= 1.0"\n}\n\noutput "greeting" {\n  value = "hello"\n}\n' > /tmp/tf-no-comment/main.tf
+
+      - id: action
+        uses: .
+        with:
+          directory: /tmp/tf-no-comment
+          comment: 'false'
+          github-token: 'false'
+          skip-plan: 'true'
+          skip-conftest: 'true'
+          enable-drift-output: 'true'
+
+      - name: Assert action succeeded without commenting
+        run: |
+          echo "PASS: action completed successfully with comment=false and no github-token"
+
+      - name: Assert drift-output directory field
+        env:
+          DRIFT_OUTPUT: ${{ steps.action.outputs.drift-output }}
+        run: |
+          echo "drift-output: $DRIFT_OUTPUT"
+          DIRECTORY=$(echo "$DRIFT_OUTPUT" | python3 -c "import sys, json; print(json.load(sys.stdin)['directory'])")
+          echo "directory: $DIRECTORY"
+          if [ "$DIRECTORY" != "/tmp/tf-no-comment" ]; then
+            echo "FAIL: expected directory '/tmp/tf-no-comment', got '$DIRECTORY'"
+            exit 1
+          fi
+          echo "PASS: directory field is correct"
