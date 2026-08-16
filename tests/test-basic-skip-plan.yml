@@ -1,0 +1,79 @@
+name: Test basic skip-plan scenario
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Install terraform
+        run: |
+          TERRAFORM_VERSION="1.9.8"
+          curl -fsSL "https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/terraform_${TERRAFORM_VERSION}_linux_amd64.zip" -o /tmp/terraform.zip
+          unzip -q /tmp/terraform.zip -d /tmp/terraform-bin
+          sudo mv /tmp/terraform-bin/terraform /usr/local/bin/terraform
+          terraform version
+
+      - name: Create empty terraform directory
+        run: mkdir -p /tmp/tf-empty
+
+      - id: action
+        uses: .
+        with:
+          comment: 'false'
+          skip-plan: 'true'
+          skip-fmt: 'true'
+          skip-conftest: 'true'
+          directory: '/tmp/tf-empty'
+          enable-drift-output: 'true'
+
+      - name: Assert drift-output is set
+        env:
+          ACTUAL: ${{ steps.action.outputs.drift-output }}
+        run: |
+          echo "actual: $ACTUAL"
+          if [ -z "$ACTUAL" ]; then
+            echo "FAIL: drift-output is empty"
+            exit 1
+          fi
+          echo "PASS: drift-output is set"
+
+      - name: Assert drift-output status is no_changes
+        env:
+          ACTUAL: ${{ steps.action.outputs.drift-output }}
+        run: |
+          echo "actual: $ACTUAL"
+          STATUS=$(echo "$ACTUAL" | python3 -c "import sys, json; print(json.load(sys.stdin)['status'])")
+          echo "status: $STATUS"
+          if [ "$STATUS" != "no_changes" ]; then
+            echo "FAIL: expected status 'no_changes', got '$STATUS'"
+            exit 1
+          fi
+          echo "PASS: status is no_changes"
+
+      - name: Assert drift-output hasChanges is false
+        env:
+          ACTUAL: ${{ steps.action.outputs.drift-output }}
+        run: |
+          echo "actual: $ACTUAL"
+          HAS_CHANGES=$(echo "$ACTUAL" | python3 -c "import sys, json; print(json.load(sys.stdin)['hasChanges'])")
+          echo "hasChanges: $HAS_CHANGES"
+          if [ "$HAS_CHANGES" != "False" ]; then
+            echo "FAIL: expected hasChanges 'False', got '$HAS_CHANGES'"
+            exit 1
+          fi
+          echo "PASS: hasChanges is False"
+
+      - name: Assert drift-output directory is set
+        env:
+          ACTUAL: ${{ steps.action.outputs.drift-output }}
+        run: |
+          echo "actual: $ACTUAL"
+          DIR=$(echo "$ACTUAL" | python3 -c "import sys, json; print(json.load(sys.stdin)['directory'])")
+          echo "directory: $DIR"
+          if [ -z "$DIR" ]; then
+            echo "FAIL: expected directory to be set"
+            exit 1
+          fi
+          echo "PASS: directory is set to '$DIR'"

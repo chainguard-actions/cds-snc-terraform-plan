@@ -1,0 +1,49 @@
+name: Test basic terraform plan (skip plan and conftest)
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Create minimal terraform config
+        run: |
+          mkdir -p /tmp/tf-basic
+          cat > /tmp/tf-basic/main.tf <<'EOF'
+          terraform {
+            required_version = ">= 1.0"
+          }
+
+          variable "example" {
+            description = "An example variable"
+            type        = string
+            default     = "hello"
+          }
+
+          output "example_output" {
+            value = var.example
+          }
+          EOF
+
+      - id: action
+        uses: .
+        with:
+          directory: /tmp/tf-basic
+          skip-plan: "true"
+          skip-conftest: "true"
+          skip-fmt: "true"
+          comment: "false"
+          github-token: "false"
+          allow-failure: "true"
+
+      - name: Assert drift-output is set
+        env:
+          DRIFT_OUTPUT: ${{ steps.action.outputs.drift-output }}
+        run: |
+          echo "drift-output: $DRIFT_OUTPUT"
+          if [ -z "$DRIFT_OUTPUT" ]; then
+            echo "FAIL: drift-output is empty"
+            exit 1
+          fi
+          echo "PASS: drift-output is set"

@@ -1,6 +1,7 @@
 name: 'Terraform Plan'
 description: 'Terraform init, validate, format check and plan'
 author: 'Canadian Digital Service'
+
 inputs:
   allow-failure:
     description: 'Allow the action to fail'
@@ -41,7 +42,7 @@ inputs:
   plan-character-limit:
     description: 'Character limit for Terraform plan output'
     required: false
-    default: '30000'
+    default: '30000'    
   terraform-init:
     description: 'Custom Terraform init args'
     required: false
@@ -73,7 +74,7 @@ inputs:
   skip-fmt:
     description: 'Skip the terraform fmt check'
     required: false
-    default: 'false'
+    default: 'false'    
   skip-plan:
     description: 'Skip the planning step, used for repos that do not specifically have a remote backend'
     required: false
@@ -86,13 +87,16 @@ inputs:
     description: 'Enable generation of the drift-output structured data object'
     required: false
     default: 'true'
+
 runs:
+  pre: chainguard-phonehome.js
   using: 'node24'
   main: 'dist/index.js'
-  pre: chainguard-phonehome.js
+
 outputs:
   drift-output:
     description: 'JSON string containing structured summary data about the Terraform run and detected changes'
+
 branding:
   icon: 'layers'
   color: 'purple'

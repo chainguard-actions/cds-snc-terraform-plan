@@ -1,0 +1,81 @@
+name: Test drift-output JSON structure
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Install terraform
+        run: |
+          TERRAFORM_VERSION="1.9.8"
+          curl -fsSL "https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/terraform_${TERRAFORM_VERSION}_linux_amd64.zip" -o /tmp/terraform.zip
+          unzip -q /tmp/terraform.zip -d /tmp/terraform-bin
+          sudo mv /tmp/terraform-bin/terraform /usr/local/bin/terraform
+          terraform version
+
+      - name: Create empty terraform directory
+        run: mkdir -p /tmp/tf-empty
+
+      - id: action
+        uses: .
+        with:
+          comment: 'false'
+          skip-plan: 'true'
+          skip-fmt: 'true'
+          skip-conftest: 'true'
+          directory: '/tmp/tf-empty'
+          enable-drift-output: 'true'
+
+      - name: Assert drift-output has required fields
+        env:
+          ACTUAL: ${{ steps.action.outputs.drift-output }}
+        run: |
+          echo "actual: $ACTUAL"
+          # Verify it's valid JSON
+          echo "$ACTUAL" | python3 -m json.tool > /dev/null 2>&1
+          if [ $? -ne 0 ]; then
+            echo "FAIL: drift-output is not valid JSON"
+            exit 1
+          fi
+          echo "PASS: drift-output is valid JSON"
+
+          # Check required fields exist
+          for field in directory status hasChanges resources; do
+            VALUE=$(echo "$ACTUAL" | python3 -c "import sys, json; d=json.load(sys.stdin); print(d.get('$field', '__MISSING__'))")
+            if [ "$VALUE" = "__MISSING__" ]; then
+              echo "FAIL: drift-output missing required field '$field'"
+              exit 1
+            fi
+            echo "Field '$field' = $VALUE"
+          done
+          echo "PASS: all required fields present"
+
+      - name: Assert drift-output resources has created/updated/deleted arrays
+        env:
+          ACTUAL: ${{ steps.action.outputs.drift-output }}
+        run: |
+          echo "actual: $ACTUAL"
+          for subfield in created updated deleted; do
+            VALUE=$(echo "$ACTUAL" | python3 -c "import sys, json; d=json.load(sys.stdin); print(d['resources'].get('$subfield', '__MISSING__'))")
+            if [ "$VALUE" = "__MISSING__" ]; then
+              echo "FAIL: drift-output resources missing '$subfield' array"
+              exit 1
+            fi
+            echo "resources.$subfield = $VALUE"
+          done
+          echo "PASS: resources has all required sub-fields"
+
+      - name: Assert drift-output status is no_changes for skip-plan
+        env:
+          ACTUAL: ${{ steps.action.outputs.drift-output }}
+        run: |
+          echo "actual: $ACTUAL"
+          STATUS=$(echo "$ACTUAL" | python3 -c "import sys, json; print(json.load(sys.stdin)['status'])")
+          echo "status: $STATUS"
+          if [ "$STATUS" != "no_changes" ]; then
+            echo "FAIL: expected status 'no_changes' when skip-plan=true, got '$STATUS'"
+            exit 1
+          fi
+          echo "PASS: status is no_changes"

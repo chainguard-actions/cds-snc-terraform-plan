@@ -1,0 +1,32 @@
+name: Test comment requires github-token
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      # When comment=true but github-token is not provided (defaults to 'false'),
+      # the action should fail with a validation error before running terraform
+      - id: action
+        uses: .
+        with:
+          comment: 'true'
+          directory: '.'
+          skip-plan: 'true'
+          skip-fmt: 'true'
+          skip-conftest: 'true'
+          enable-drift-output: 'false'
+        continue-on-error: true
+
+      - name: Assert action failed due to missing token
+        env:
+          OUTCOME: ${{ steps.action.outcome }}
+        run: |
+          echo "outcome: $OUTCOME"
+          if [ "$OUTCOME" != "failure" ]; then
+            echo "FAIL: expected action to fail when comment=true but no github-token provided, got '$OUTCOME'"
+            exit 1
+          fi
+          echo "PASS: action correctly failed when comment=true without github-token"

@@ -1,0 +1,31 @@
+name: Test directory not found failure
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      # The action should fail when the directory does not exist
+      - id: action
+        uses: .
+        with:
+          comment: 'false'
+          directory: '/nonexistent/path/that/does/not/exist'
+          skip-plan: 'true'
+          skip-fmt: 'true'
+          skip-conftest: 'true'
+          enable-drift-output: 'false'
+        continue-on-error: true
+
+      - name: Assert action failed due to missing directory
+        env:
+          OUTCOME: ${{ steps.action.outcome }}
+        run: |
+          echo "outcome: $OUTCOME"
+          if [ "$OUTCOME" != "failure" ]; then
+            echo "FAIL: expected action to fail when directory does not exist, got '$OUTCOME'"
+            exit 1
+          fi
+          echo "PASS: action correctly failed for missing directory"

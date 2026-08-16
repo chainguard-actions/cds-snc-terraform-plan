@@ -1,0 +1,76 @@
+name: Test allow-failure mode
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Install terraform
+        run: |
+          TERRAFORM_VERSION="1.9.8"
+          curl -fsSL "https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/terraform_${TERRAFORM_VERSION}_linux_amd64.zip" -o /tmp/terraform.zip
+          unzip -q /tmp/terraform.zip -d /tmp/terraform-bin
+          sudo mv /tmp/terraform-bin/terraform /usr/local/bin/terraform
+          terraform version
+
+      # Create a directory with an invalid terraform file that will cause validate to fail.
+      # With allow-failure: true, the action should still succeed.
+      - name: Create terraform directory with invalid configuration
+        run: |
+          mkdir -p /tmp/tf-invalid
+          cat > /tmp/tf-invalid/main.tf << 'EOF'
+          this is not valid terraform syntax !!!
+          EOF
+
+      - id: action
+        uses: .
+        with:
+          comment: 'false'
+          allow-failure: 'true'
+          skip-plan: 'true'
+          skip-fmt: 'true'
+          skip-conftest: 'true'
+          directory: '/tmp/tf-invalid'
+          enable-drift-output: 'true'
+
+      - name: Assert action succeeded despite errors (allow-failure=true)
+        env:
+          OUTCOME: ${{ steps.action.outcome }}
+        run: |
+          echo "outcome: $OUTCOME"
+          if [ "$OUTCOME" != "success" ]; then
+            echo "FAIL: expected action to succeed with allow-failure=true, got '$OUTCOME'"
+            exit 1
+          fi
+          echo "PASS: action succeeded with allow-failure=true"
+
+      - name: Assert drift-output is produced even with errors
+        env:
+          ACTUAL: ${{ steps.action.outputs.drift-output }}
+        run: |
+          echo "actual: $ACTUAL"
+          if [ -z "$ACTUAL" ]; then
+            echo "FAIL: drift-output should be set even when commands fail with allow-failure=true"
+            exit 1
+          fi
+          echo "PASS: drift-output is set"
+
+      - name: Assert drift-output is valid JSON with failed status
+        env:
+          ACTUAL: ${{ steps.action.outputs.drift-output }}
+        run: |
+          echo "actual: $ACTUAL"
+          echo "$ACTUAL" | python3 -m json.tool > /dev/null 2>&1
+          if [ $? -ne 0 ]; then
+            echo "FAIL: drift-output is not valid JSON"
+            exit 1
+          fi
+          STATUS=$(echo "$ACTUAL" | python3 -c "import sys, json; print(json.load(sys.stdin)['status'])")
+          echo "status: $STATUS"
+          if [ "$STATUS" != "failed" ]; then
+            echo "FAIL: expected status 'failed' when commands fail, got '$STATUS'"
+            exit 1
+          fi
+          echo "PASS: drift-output is valid JSON with status=failed"

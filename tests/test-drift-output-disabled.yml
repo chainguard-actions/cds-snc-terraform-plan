@@ -1,0 +1,40 @@
+name: Test drift-output disabled
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Install terraform
+        run: |
+          TERRAFORM_VERSION="1.9.8"
+          curl -fsSL "https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/terraform_${TERRAFORM_VERSION}_linux_amd64.zip" -o /tmp/terraform.zip
+          unzip -q /tmp/terraform.zip -d /tmp/terraform-bin
+          sudo mv /tmp/terraform-bin/terraform /usr/local/bin/terraform
+          terraform version
+
+      - name: Create empty terraform directory
+        run: mkdir -p /tmp/tf-empty
+
+      - id: action
+        uses: .
+        with:
+          comment: 'false'
+          skip-plan: 'true'
+          skip-fmt: 'true'
+          skip-conftest: 'true'
+          directory: '/tmp/tf-empty'
+          enable-drift-output: 'false'
+
+      - name: Assert drift-output is empty when disabled
+        env:
+          ACTUAL: ${{ steps.action.outputs.drift-output }}
+        run: |
+          echo "actual: '$ACTUAL'"
+          if [ -n "$ACTUAL" ]; then
+            echo "FAIL: expected drift-output to be empty when enable-drift-output=false, got '$ACTUAL'"
+            exit 1
+          fi
+          echo "PASS: drift-output is empty as expected when disabled"
