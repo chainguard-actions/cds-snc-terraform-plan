@@ -1,0 +1,34 @@
+name: Test skip-fmt ignores formatting failures
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      FAKE_FMT_FAIL: 'true'
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Install fake terraform
+        run: bash tests/fixtures/setup-fake-terraform.sh "$GITHUB_WORKSPACE/tests/fixtures/plan-nochanges.json"
+      - id: action
+        uses: .
+        with:
+          directory: tf-test
+          comment: 'false'
+          skip-conftest: 'true'
+          skip-fmt: 'true'
+      - name: Assert fmt was skipped and run succeeded
+        env:
+          ACTUAL: ${{ steps.action.outputs.drift-output }}
+        run: |
+          cat /tmp/fake-tf-calls.log
+          echo "actual: $ACTUAL"
+          if grep -q "^fmt" /tmp/fake-tf-calls.log; then
+            echo "FAIL: fmt should not have been executed"
+            exit 1
+          fi
+          if ! printf '%s' "$ACTUAL" | grep -qF '"status":"no_changes"'; then
+            echo "FAIL: expected status no_changes"
+            exit 1
+          fi
+          echo "PASS"

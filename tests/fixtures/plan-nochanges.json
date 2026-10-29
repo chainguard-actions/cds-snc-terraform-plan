@@ -1,0 +1,13 @@
+{
+  "format_version": "1.2",
+  "terraform_version": "1.9.0",
+  "resource_changes": [
+    {
+      "address": "aws_s3_bucket.unchanged",
+      "type": "aws_s3_bucket",
+      "name": "unchanged",
+      "change": { "actions": ["no-op"], "before": { "bucket": "x" }, "after": { "bucket": "x" } }
+    }
+  ],
+  "output_changes": {}
+}

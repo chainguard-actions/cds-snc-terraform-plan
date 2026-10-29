@@ -1,0 +1,28 @@
+name: Test plan with no changes
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Install fake terraform
+        run: bash tests/fixtures/setup-fake-terraform.sh "$GITHUB_WORKSPACE/tests/fixtures/plan-nochanges.json"
+      - id: action
+        uses: .
+        with:
+          directory: tf-test
+          comment: 'false'
+          skip-conftest: 'true'
+      - name: Assert drift-output reports no changes
+        env:
+          ACTUAL: ${{ steps.action.outputs.drift-output }}
+        run: |
+          echo "actual: $ACTUAL"
+          for expected in '"status":"no_changes"' '"hasChanges":false' '"created":[]' '"updated":[]' '"deleted":[]'; do
+            if ! printf '%s' "$ACTUAL" | grep -qF "$expected"; then
+              echo "FAIL: drift-output missing $expected"
+              exit 1
+            fi
+          done
+          echo "PASS"

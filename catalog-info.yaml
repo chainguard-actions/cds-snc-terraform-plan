@@ -1,0 +1,16 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: terraform-plan
+  description: GitHub Action to run Terraform plan and add a comment with the changes.
+  labels:
+    license: MIT
+  tags:
+    - "github-action"
+    - "terraform"
+spec:
+  type: website
+  lifecycle: experimental
+  owner: group:cds-snc/internal-sre
+  domain: site-reliability-engineering
+  system: cds-alm

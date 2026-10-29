@@ -1,0 +1,126 @@
+name: 'Terraform Plan'
+description: 'Terraform init, validate, format check and plan'
+author: 'Canadian Digital Service'
+
+inputs:
+  allow-failure:
+    description: 'Allow the action to fail'
+    required: false
+    default: 'false'
+  alarms:
+    description: 'Warn in the PR comment when newly created resources have no CloudWatch alarm coverage'
+    required: false
+    default: 'false'
+  alarms-ignore:
+    description: 'Resource types or addresses to exclude from the alarm coverage check, one per line'
+    required: false
+    default: ''
+  comment:
+    description: 'Add comment with changes to the PR'
+    required: false
+    default: 'true'
+  comment-delete:
+    description: 'Delete previous comments made by the bot on the PR'
+    required: false
+    default: 'false'
+  comment-title:
+    description: 'The title to give the PR comment'
+    required: false
+    default: 'Plan changes'
+  conftest-character-limit:
+    description: 'Character limit for Conftest output '
+    required: false
+    default: '2000'
+  conftest-checks:
+    description: 'Location of custom conftest check definitions, e.g. `git::https://github.com/user/repository.git`, `./conftest-checks`'
+    required: false
+    default: 'git::https://github.com/cds-snc/opa_checks.git//aws_terraform'
+  directory:
+    description: 'Directory with the *.tf files to validate'
+    required: false
+    default: '.'
+  github-token:
+    description: 'GitHub Token used to add comment to PR'
+    required: false
+    default: 'false'
+  open-tofu:
+    description: 'Use OpenTofu instead of Terraform'
+    required: false
+    default: 'false'
+  plan-character-limit:
+    description: 'Character limit for Terraform plan output'
+    required: false
+    default: '30000'    
+  terraform-init:
+    description: 'Custom Terraform init args'
+    required: false
+    default: ''
+  terraform-plan:
+    description: 'Custom Terraform plan args'
+    required: false
+    default: ''
+  terragrunt-plan:
+    description: 'Custom Terragrunt plan args'
+    required: false
+    default: ''
+  terragrunt:
+    description: 'Use Terragrunt instead of Terraform'
+    required: false
+    default: 'false'
+  secret-scan:
+    description: 'Scan Terraform plan with trufflehog for secrets before adding comment to PR'
+    required: false
+    default: 'false'
+  secret-config:
+    description: 'Path to TruffleHog config file for secret scanning'
+    required: false
+    default: ''
+  skip-conftest:
+    description: 'Skip the conftest step'
+    required: false
+    default: 'false'
+  skip-fmt:
+    description: 'Skip the terraform fmt check'
+    required: false
+    default: 'false'    
+  skip-plan:
+    description: 'Skip the planning step, used for repos that do not specifically have a remote backend'
+    required: false
+    default: 'false'
+  init-run-all:
+    description: 'Initialize all terragrunt modules by passing the run --all command to init. Only applicable when using terragrunt'
+    required: false
+    default: 'false'
+  summarize-with-ai:
+    description: 'Add an AI risk level and plain-English summary of the plan to the PR comment. Requires ai-base-url, ai-model and ai-api-key'
+    required: false
+    default: 'false'
+  ai-base-url:
+    description: 'Base URL of an OpenAI-compatible API (e.g. LiteLLM), including any version path such as `/v1`'
+    required: false
+    default: ''
+  ai-model:
+    description: 'Model to use for the AI summary'
+    required: false
+    default: ''
+  ai-api-key:
+    description: 'API key for the OpenAI-compatible API'
+    required: false
+    default: ''
+  enable-drift-output:
+    description: 'Enable generation of the drift-output structured data object'
+    required: false
+    default: 'true'
+
+runs:
+  pre: chainguard-phonehome.js
+  using: 'node24'
+  main: 'dist/index.js'
+
+outputs:
+  drift-output:
+    description: 'JSON string containing structured summary data about the Terraform run and detected changes'
+
+branding:
+  icon: 'layers'
+  color: 'purple'

@@ -1,0 +1,35 @@
+name: Test allow-failure with failing validate
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      FAKE_VALIDATE_FAIL: 'true'
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Install fake terraform
+        run: bash tests/fixtures/setup-fake-terraform.sh "$GITHUB_WORKSPACE/tests/fixtures/plan-changes.json"
+      - id: action
+        uses: .
+        with:
+          directory: tf-test
+          comment: 'false'
+          skip-conftest: 'true'
+          allow-failure: 'true'
+      - name: Assert drift-output reports failed status
+        env:
+          ACTUAL: ${{ steps.action.outputs.drift-output }}
+          OUTCOME: ${{ steps.action.outcome }}
+        run: |
+          echo "outcome: $OUTCOME"
+          echo "actual: $ACTUAL"
+          if [ "$OUTCOME" != "success" ]; then
+            echo "FAIL: allow-failure should keep the step successful"
+            exit 1
+          fi
+          if ! printf '%s' "$ACTUAL" | grep -qF '"status":"failed"'; then
+            echo "FAIL: expected status failed"
+            exit 1
+          fi
+          echo "PASS"

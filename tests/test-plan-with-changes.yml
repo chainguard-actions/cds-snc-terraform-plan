@@ -1,0 +1,44 @@
+name: Test plan with changes
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Install fake terraform
+        run: bash tests/fixtures/setup-fake-terraform.sh "$GITHUB_WORKSPACE/tests/fixtures/plan-changes.json"
+      - id: action
+        uses: .
+        with:
+          directory: tf-test
+          comment: 'false'
+          skip-conftest: 'true'
+      - name: Assert drift-output reports changes
+        env:
+          ACTUAL: ${{ steps.action.outputs.drift-output }}
+        run: |
+          echo "actual: $ACTUAL"
+          for expected in '"directory":"tf-test"' '"status":"has_changes"' '"hasChanges":true' \
+              '"created":["aws_s3_bucket.created"]' '"updated":["aws_s3_bucket.updated"]' \
+              '"deleted":["aws_s3_bucket.deleted"]'; do
+            if ! printf '%s' "$ACTUAL" | grep -qF "$expected"; then
+              echo "FAIL: drift-output missing $expected"
+              exit 1
+            fi
+          done
+          echo "PASS"
+      - name: Assert terraform commands were executed
+        run: |
+          cat /tmp/fake-tf-calls.log
+          for c in "init -no-color" "validate -no-color" "fmt -check" "plan -no-color -input=false -out=plan.tfplan" "show -no-color -json plan.tfplan" "tf-summarize -md"; do
+            if ! grep -qF "$c" /tmp/fake-tf-calls.log; then
+              echo "FAIL: expected command '$c' to run"
+              exit 1
+            fi
+          done
+          if [ ! -f "$GITHUB_WORKSPACE/tf-test/plan.json" ]; then
+            echo "FAIL: plan.json not written in directory"
+            exit 1
+          fi
+          echo "PASS"

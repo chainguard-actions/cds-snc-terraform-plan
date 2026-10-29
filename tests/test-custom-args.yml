@@ -1,0 +1,34 @@
+name: Test custom terraform init and plan args
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Install fake terraform
+        run: bash tests/fixtures/setup-fake-terraform.sh "$GITHUB_WORKSPACE/tests/fixtures/plan-nochanges.json"
+      - id: action
+        uses: .
+        with:
+          directory: tf-test
+          comment: 'false'
+          skip-conftest: 'true'
+          terraform-init: |
+            -backend-config=bucket=my-bucket
+            -upgrade;echo
+          terraform-plan: |
+            -var=env=staging
+            -refresh=false
+      - name: Assert custom args were passed (sanitized)
+        run: |
+          cat /tmp/fake-tf-calls.log
+          if ! grep -qF "init -no-color -backend-config=bucket=my-bucket -upgradeecho" /tmp/fake-tf-calls.log; then
+            echo "FAIL: init args not passed/sanitized as expected"
+            exit 1
+          fi
+          if ! grep -qF "plan -no-color -input=false -out=plan.tfplan -var=env=staging -refresh=false" /tmp/fake-tf-calls.log; then
+            echo "FAIL: plan args not passed as expected"
+            exit 1
+          fi
+          echo "PASS"

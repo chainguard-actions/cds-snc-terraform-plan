@@ -1,0 +1,38 @@
+name: Test skip-plan
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Install fake terraform
+        run: bash tests/fixtures/setup-fake-terraform.sh "$GITHUB_WORKSPACE/tests/fixtures/plan-changes.json"
+      - id: action
+        uses: .
+        with:
+          directory: tf-test
+          comment: 'false'
+          skip-plan: 'true'
+      - name: Assert plan/show/summary were skipped
+        run: |
+          cat /tmp/fake-tf-calls.log
+          if ! grep -q "^init" /tmp/fake-tf-calls.log || ! grep -q "^validate" /tmp/fake-tf-calls.log; then
+            echo "FAIL: init/validate should still run"
+            exit 1
+          fi
+          if grep -qE "^(plan|show)|tf-summarize" /tmp/fake-tf-calls.log; then
+            echo "FAIL: plan/show/summary should be skipped"
+            exit 1
+          fi
+          echo "PASS"
+      - name: Assert drift-output reports no changes
+        env:
+          ACTUAL: ${{ steps.action.outputs.drift-output }}
+        run: |
+          echo "actual: $ACTUAL"
+          if ! printf '%s' "$ACTUAL" | grep -qF '"status":"no_changes"'; then
+            echo "FAIL: expected status no_changes"
+            exit 1
+          fi
+          echo "PASS"
