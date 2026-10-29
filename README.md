@@ -11,6 +11,7 @@ Hardened by [Chainguard](https://www.chainguard.dev) from the upstream action at
 | v5.0.1 | [`v5.0.1`](https://github.com/chainguard-actions/cds-snc-terraform-plan/tree/v5.0.1) | [`51ee680`](https://github.com/cds-snc/terraform-plan/commit/51ee6803d417261c41307840904e3bc696f4be49) | [`HARDENING.md`](https://github.com/chainguard-actions/cds-snc-terraform-plan/blob/v5.0.1/HARDENING.md) |
 | v5.0.2 | [`v5.0.2`](https://github.com/chainguard-actions/cds-snc-terraform-plan/tree/v5.0.2) | [`59fef29`](https://github.com/cds-snc/terraform-plan/commit/59fef29775e3c40a6a3fd9ddbc1259368eecc79a) | [`HARDENING.md`](https://github.com/chainguard-actions/cds-snc-terraform-plan/blob/v5.0.2/HARDENING.md) |
 | v5.0.4 | [`v5.0.4`](https://github.com/chainguard-actions/cds-snc-terraform-plan/tree/v5.0.4) | [`529b272`](https://github.com/cds-snc/terraform-plan/commit/529b272050a8f718d14c59e62b59c124eead7efc) | [`HARDENING.md`](https://github.com/chainguard-actions/cds-snc-terraform-plan/blob/v5.0.4/HARDENING.md) |
+| v5.0.5 | [`v5.0.5`](https://github.com/chainguard-actions/cds-snc-terraform-plan/tree/v5.0.5) | [`e08baaf`](https://github.com/cds-snc/terraform-plan/commit/e08baaf605af7604ca7a138b6115be6dbd2882e8) | [`HARDENING.md`](https://github.com/chainguard-actions/cds-snc-terraform-plan/blob/v5.0.5/HARDENING.md) |
 
 ## Privacy
 
